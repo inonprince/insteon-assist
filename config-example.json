@@ -1,0 +1,23 @@
+{
+  "hub": {
+    "host": "192.168.1.10",
+    "port": 25105,
+    "user": "insteon_hub_username",
+    "password": "insteon_hub_password"
+  },
+  "lights": {
+    "45921B": {
+      "name": "Living Room Dimmer"
+    },
+    "459F3A": {
+      "name": "Bedroom Dimmer"
+    }
+  },
+  "mqtt" : {
+    "url": "mqtt://127.0.0.1:1883",
+    "options": {
+      "username": "homeassistant",
+      "password": "web_api_password"
+    }
+  }
+}
