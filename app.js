@@ -75,7 +75,7 @@ const setupMqtt = () => {
     if (updateLinksInterval) {
       clearInterval(updateLinksInterval);
     }
-    updateLinksInterval = setInterval(setupLinks, 120000);
+    updateLinksInterval = setInterval(setupLinks, 300000);
   })
   mqttClient.on("message", function (topic, rawMsg) {
     let msg = JSON.parse(rawMsg);
@@ -113,14 +113,6 @@ const setupMqtt = () => {
   })
 }
 
-hub.httpClient(hubConfig, function(){
-  console.log("connected to hub at " + hubConfig.host);
-  setupMqtt();
-  for (let doorId in doors) {
-    setupDoor(doorId);
-  }
-});
-
 const setupDoor = (doorId) => {
   const doorConfig = doors[doorId];
   let door = hub.door(doorId)
@@ -132,6 +124,7 @@ const setupDoor = (doorId) => {
     mqttClient.publish(`homeassistant/binary_sensor/${door.id}/config`, JSON.stringify(deviceConfig));
     setTimeout(() => {
       mqttClient.publish(`homeassistant/binary_sensor/${door.id}/state`, state);
+      console.log(`${doorConfig.name || doorId}: `, state);
     }, 500);
   }
   door.on('opened', () => {
@@ -141,6 +134,18 @@ const setupDoor = (doorId) => {
     registerDevice('OFF');
   });
 }
+
+hub.on('close', (had_error) => {
+  console.log("closed hub connection", had_error);
+});
+
+hub.httpClient(hubConfig, () => {
+  console.log("connected to hub at " + hubConfig.host);
+  setupMqtt();
+  for (let doorId in doors) {
+    setupDoor(doorId);
+  }
+});
 
 // express routes:
 // app.get('/light/:id/on', function(req, res){
