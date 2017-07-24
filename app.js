@@ -4,6 +4,7 @@ let nconf = require('nconf');
 
 nconf.file(__dirname + '/config.json');
 let lights = nconf.get('lights');
+let doors = nconf.get('doors');
 const hubConfig = nconf.get('hub');
 const mqttBroker = nconf.get('mqtt:url');
 const mqttOpts = nconf.get('mqtt:options');
@@ -115,7 +116,31 @@ const setupMqtt = () => {
 hub.httpClient(hubConfig, function(){
   console.log("connected to hub at " + hubConfig.host);
   setupMqtt();
+  for (let doorId in doors) {
+    setupDoor(doorId);
+  }
 });
+
+const setupDoor = (doorId) => {
+  const doorConfig = doors[doorId];
+  let door = hub.door(doorId)
+  const deviceConfig = {
+    name: doorConfig.name,
+    device_class: 'opening',
+  };
+  const registerDevice = (state) => {
+    mqttClient.publish(`homeassistant/binary_sensor/${door.id}/config`, JSON.stringify(deviceConfig));
+    setTimeout(() => {
+      mqttClient.publish(`homeassistant/binary_sensor/${door.id}/state`, state);
+    }, 500);
+  }
+  door.on('opened', () => {
+    registerDevice('ON');
+  });
+  door.on('closed', () => {
+    registerDevice('OFF');
+  });
+}
 
 // express routes:
 // app.get('/light/:id/on', function(req, res){
