@@ -106,7 +106,7 @@ const setupMqtt = () => {
       if (deviceState.state == 'OFF') {
         hub.light(lightId).turnOff();
       } else {
-        const lightBrightness = deviceState.brightness ? Math.round(deviceState.brightness / 2.55) : null;
+        const lightBrightness = deviceState.brightness ? Math.round(deviceState.brightness / 2.55) : undefined;
         hub.light(lightId).turnOn(lightBrightness);
       }
     }
