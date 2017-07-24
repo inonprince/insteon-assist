@@ -87,16 +87,16 @@ const setupMqtt = () => {
         deviceState = {
           state: 'OFF',
         }
-      } else if (msg.brightness) {
+      } else if (msg.brightness || lights[lightId].lastLevel) {
+        const lightBrightness = Math.round(msg.brightness || lights[lightId].lastLevel);
         deviceState = {
           state: 'ON',
-          brightness: msg.brightness,
-        }    
-        lights[lightId].lastLevel = Math.round(msg.brightness);
+          brightness: lightBrightness,
+        }
+        lights[lightId].lastLevel = lightBrightness;
       } else {
         deviceState = {
           state: 'ON',
-          brightness: lights[lightId].lastLevel,
         } 
       }
       // optimistic update
@@ -105,7 +105,8 @@ const setupMqtt = () => {
       if (deviceState.state == 'OFF') {
         hub.light(lightId).turnOff();
       } else {
-        hub.light(lightId).turnOn(deviceState.brightness / 2.55);
+        const lightBrightness = deviceState.brightness ? Math.round(deviceState.brightness / 2.55) : null;
+        hub.light(lightId).turnOn(lightBrightness);
       }
     }
   })
