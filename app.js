@@ -2,15 +2,15 @@ let Insteon = require('home-controller').Insteon;
 let mqtt = require('mqtt')
 let nconf = require('nconf');
 
-let hub = new Insteon();
-let mqttClient;
-let updateLinksInterval;
-
 nconf.file(__dirname + '/config.json');
 let lights = nconf.get('lights');
 const hubConfig = nconf.get('hub');
 const mqttBroker = nconf.get('mqtt:url');
 const mqttOpts = nconf.get('mqtt:options');
+
+let hub = new Insteon();
+let mqttClient;
+let updateLinksInterval;
 
 const setupLinks = () => {
   hub.links( function(error, links) {
@@ -36,7 +36,7 @@ const setupLinks = () => {
                 if (curLevel !== curLevel2) return updateLightState();
                 lights[light.id] = lights[light.id] || {};
                 if (curLevel > 0) {
-                  lights[light.id].lastLevel = curLevel;
+                  lights[light.id].lastLevel = curLevel * 2.55;
                 }
                 const deviceState = {
                   state: (curLevel > 0 ? 'ON' : 'OFF'),
@@ -45,7 +45,7 @@ const setupLinks = () => {
                 mqttClient.publish(`homelights/${light.id}/state`, JSON.stringify(deviceState));
                 console.log(`${lightName}: `, deviceState);
               });
-            }, 200);
+            }, 500);
           });
         }
         updateLightState();
@@ -63,8 +63,7 @@ const setupLinks = () => {
   });
 }
 
-hub.httpClient(hubConfig, function(){
-  console.log("connected to hub at " + hubConfig.host);
+const setupMqtt = () => {
   mqttClient  = mqtt.connect(mqttBroker, mqttOpts);
   mqttClient.on("error", function(err) {
     console.log("MQTT::Error from client --> ", err);
@@ -81,24 +80,40 @@ hub.httpClient(hubConfig, function(){
     let msg = JSON.parse(rawMsg);
     console.log(topic, msg);
     const lightIdRes = topic.match(/homelights\/(.+)\/state\/set/);
-    if (lightIdRes[1]) {      
+    if (lightIdRes[1]) {
       const lightId = lightIdRes[1];
+      let deviceState;
       if (msg.state == 'OFF' || msg.brightness === 0) {
+        deviceState = {
+          state: 'OFF',
+        }
+      } else if (msg.brightness) {
+        deviceState = {
+          state: 'ON',
+          brightness: msg.brightness,
+        }    
+        lights[lightId].lastLevel = Math.round(msg.brightness);
+      } else {
+        deviceState = {
+          state: 'ON',
+          brightness: lights[lightId].lastLevel,
+        } 
+      }
+      // optimistic update
+      mqttClient.publish(`homelights/${lightId}/state`, JSON.stringify(deviceState));
+      console.log(`${lightId} optimistic: `, deviceState);
+      if (deviceState.state == 'OFF') {
         hub.light(lightId).turnOff();
       } else {
-        if (msg.brightness) {
-          const level = Math.round(msg.brightness / 2.55)
-          hub.light(lightId).turnOn(level);
-          lights[lightId].lastLevel = level;
-        } else {
-          console.log("resuming brightness: ", lights[lightId].lastLevel );
-          hub.light(lightId).turnOn(lights[lightId].lastLevel);
-        }
+        hub.light(lightId).turnOn(deviceState.brightness / 2.55);
       }
     }
-    
   })
+}
 
+hub.httpClient(hubConfig, function(){
+  console.log("connected to hub at " + hubConfig.host);
+  setupMqtt();
 });
 
 // express routes:
