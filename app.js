@@ -1,8 +1,13 @@
 let Insteon = require('home-controller').Insteon;
 let mqtt = require('mqtt')
 let nconf = require('nconf');
-
-nconf.file(__dirname + '/config.json');
+var fs = require('fs');
+if (fs.existsSync(__dirname + '/config.json')) {
+    nconf.file(__dirname + '/config.json');
+}
+if (fs.existsSync('/data/config.json')) {
+    nconf.file('/data/config.json');
+}
 let lights = nconf.get('lights');
 let doors = nconf.get('doors');
 let leaks = nconf.get('leaks');
