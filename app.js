@@ -5,6 +5,7 @@ let nconf = require('nconf');
 nconf.file(__dirname + '/config.json');
 let lights = nconf.get('lights');
 let doors = nconf.get('doors');
+let leaks = nconf.get('leaks');
 const hubConfig = nconf.get('hub');
 const mqttBroker = nconf.get('mqtt:url');
 const mqttOpts = nconf.get('mqtt:options');
@@ -120,6 +121,7 @@ const setupDoor = (doorId) => {
     name: doorConfig.name,
     device_class: 'opening',
   };
+
   const registerDevice = (state) => {
     mqttClient.publish(`homeassistant/binary_sensor/${door.id}/config`, JSON.stringify(deviceConfig));
     setTimeout(() => {
@@ -135,6 +137,28 @@ const setupDoor = (doorId) => {
   });
 }
 
+const setupLeak = (leakId) => {
+  const leakConfig = leaks[leakId];
+  let leak = hub.leak(leakId)
+  const deviceConfig = {
+    name: leakConfig.name,
+    device_class: 'moisture',
+  };
+  const registerDevice = (state) => {
+    mqttClient.publish(`homeassistant/binary_sensor/${leak.id}/config`, JSON.stringify(deviceConfig));
+    setTimeout(() => {
+      mqttClient.publish(`homeassistant/binary_sensor/${leak.id}/state`, state);
+      console.log(`${leakConfig.name || leakId}: `, state);
+    }, 500);
+  }
+  leak.on('wet', () => {
+    registerDevice('ON');
+  });
+  leak.on('dry', () => {
+    registerDevice('OFF');
+  });
+}
+
 hub.on('close', (had_error) => {
   console.log("closed hub connection", had_error);
 });
@@ -144,6 +168,9 @@ hub.httpClient(hubConfig, () => {
   setupMqtt();
   for (let doorId in doors) {
     setupDoor(doorId);
+  }
+  for (let leakId in leaks) {
+    setupLeak(leakId)
   }
 });
 
